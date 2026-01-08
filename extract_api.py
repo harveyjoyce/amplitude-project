@@ -3,7 +3,7 @@ import requests
 import logging
 import json
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timedelta
 
 logs_dir = 'logs'
 if os.path.exists(logs_dir):
@@ -40,9 +40,14 @@ logger.info("AMP Environment Variables Read")
 
 url = 'https://analytics.eu.amplitude.com/api/2/export'
 
+yesterday = datetime.now() - timedelta(days=1)
+
+start_date = yesterday.strftime('%Y%m%dT00')
+end_date = yesterday.strftime('%Y%m%dT23')
+
 params= {
-        'start': '20260101T00', 
-        'end': '20260101T23'
+        'start': start_date, 
+        'end': end_date
         }
 logger.info("API URL/Parameters Set")
 
