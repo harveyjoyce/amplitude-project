@@ -75,6 +75,7 @@ while count < number_of_tries:
         with open(filepath, 'wb') as file:
             file.write(data)
         logger.info(f"Data saved to {filepath}")
+        break
 
     # If not sucessful?
     elif response_code>499 or response_code<200:
