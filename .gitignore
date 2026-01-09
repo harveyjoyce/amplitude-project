@@ -211,3 +211,4 @@ logs
 data
 unzip_data
 unzip_logs
+*.zip

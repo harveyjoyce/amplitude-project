@@ -68,12 +68,12 @@ while count < number_of_tries:
     # If successful?
 
     if response_code == 200:
-        data = response.content 
+        data = response.content # because it .zips
         logger.info("Data retrieved successfully.")
-        logger.info(f"Saving data to {filepath}")
-        with open(filepath, 'wb') as file:
+        logger.info(f"Saving data to amp_events.zip")
+        with open(f"data/amp_events.zip", 'wb') as file:
             file.write(data)
-        logger.info(f"Data saved to {filepath}")
+        logger.info(f"Data saved to amp_events.zip")
         break
 
     # If not sucessful?
@@ -81,6 +81,7 @@ while count < number_of_tries:
             # wait and retry
             time.sleep(10)
             count+=1
+            logger.info(f"This is attempt {count}")
     else:
         logger.error(f"API Call Error '{response_code}: {response.text}'")
         print(f'Error {response_code}: {response.text}')
