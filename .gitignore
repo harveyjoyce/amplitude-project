@@ -213,3 +213,8 @@ unzip_data
 unzip_logs
 *.zip
 load_logs
+
+logs_dir
+zip_files
+gzip_files
+json_data

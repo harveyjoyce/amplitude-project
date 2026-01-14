@@ -1,38 +1,88 @@
-from modules.logging import logging_function
-from modules.extract import extract_function
-from modules.load import load_function
+import os
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-import os
-from pathlib import Path
+import boto3
+from modules.logging import logging_function
+from modules.extract import extract_function
+from modules.unzip import unzipping_function
+from modules.load import loading_function
 
+#create directories for data and logs if they don't already exist
+logs_dir = 'logs'
+zip_files = 'zip_files'
+gzip_files = 'gzip_files'
+json_data = 'json_data'
+
+dirs = [logs_dir, zip_files, gzip_files, json_data]
+for dir in dirs:
+    os.makedirs(dir, exist_ok=True)
+
+#create timestamps (used for file names and api call)
+current_timestamp = datetime.now()
+yesterday_timestamp = current_timestamp - timedelta(days=1)
+
+current_timestamp_str = current_timestamp.strftime('%Y-%m-%d_%H-%M-%S')
+yesterday_timestamp_str = yesterday_timestamp.strftime('%Y-%m-%d_%H-%M-%S')
+
+request_start = f'{yesterday_timestamp_str.replace('-', '')[:8]}T00'
+request_end = f'{yesterday_timestamp_str.replace('-', '')[:8]}T23'
+
+#set up logging
+logger = logging_function(timestamp=current_timestamp_str)
+
+#load secrets
 load_dotenv()
 
-AMP_API_KEY = os.getenv("AMP_API_KEY")
-AMP_SECRET_KEY = os.getenv("AMP_SECRET_KEY")
+AMP_API_KEY = os.getenv('AMP_API_KEY')
+AMP_SECRET_KEY = os.getenv('AMP_SECRET_KEY')
 
-aws_access_key_id = os.getenv('aws_access_key_id')
-aws_secret_access_key = os.getenv('aws_secret_access_key')
-bucket_name = os.getenv('bucket_name')
+AWS_ACCESS_KEY = os.getenv('AWS_ACCESS_KEY')
+AWS_SECRET_KEY = os.getenv('AWS_SECRET_KEY')
+AWS_BUCKET = os.getenv('AWS_BUCKET')
 
-timestamp = datetime.now().strftime('%Y-%m-%d %H-%M-%S')
-
+#api information
 url = 'https://analytics.eu.amplitude.com/api/2/export'
+params = {
+    'start': request_start,
+    'end': request_end
+}
 
-yesterday = datetime.now() - timedelta(days=1)
+#define retry logic
+max_attempts = 3
 
-start_date = yesterday.strftime('%Y%m%dT00')
-end_date = yesterday.strftime('%Y%m%dT23')
+#extract data, implementing retry logic and logging the outcome
+extract_function(
+    max_attempts=max_attempts,
+    url=url,
+    params=params,
+    API_KEY=AMP_API_KEY,
+    SECRET_KEY=AMP_SECRET_KEY,
+    logger=logger,
+    data_dir=zip_files,
+    current_timestamp_str=current_timestamp_str
+)
 
-params= {
-        'start': start_date, 
-        'end': end_date
-        }
+#Extract zip files, creating gzip files. Remaining zip files are deleted
+#Extract gzips, outputting json files. The remaining gzip files are deleted
 
-extract_logger = logging_function('extract',timestamp)
+unzipping_function(
+    zip_dir=zip_files, 
+    gzip_dir=gzip_files, 
+    output_dir=json_data, 
+    logger=logger
+)
 
-extract_function(url,3, extract_logger, timestamp)
+#connect to s3
+s3_client = boto3.client(
+    's3',
+    aws_access_key_id=AWS_ACCESS_KEY,
+    aws_secret_access_key=AWS_SECRET_KEY
+)
 
-load_logger = logging_function('load',timestamp)
-
-load_function(Path('data'), aws_access_key_id, aws_secret_access_key, bucket_name, load_logger)
+#loop through and upload all JSON files to s3, deleting the local copies
+loading_function(
+    json_dir=json_data,
+    s3_client=s3_client,
+    bucket_name=AWS_BUCKET,
+    logger=logger
+)

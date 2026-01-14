@@ -1,54 +1,38 @@
 import requests
 import time
-import os
 
-def extract_function(url, number_of_tries, params, AMP_API_KEY, AMP_SECRET_KEY, logger, timestamp):
+def extract_function(max_attempts, url, params, API_KEY, SECRET_KEY, logger, data_dir, current_timestamp_str):
     '''
-    Docstring for extract_function
-    
-    :param url: Description
-    :param number_of_tries: Description
-    :param params: Description
-    :param AMP_API_KEY: Description
-    :param AMP_SECRET_KEY: Description
-    :param logger: Description
-    :param timestamp: Description
+    Extracts data from Amplitude, writing it to a zip file, handling errors, and logging the outcome
     '''
     count = 0
+    while count < max_attempts:
+        response = requests.get(url, params=params, auth=(API_KEY, SECRET_KEY))
 
-    while count < number_of_tries:
-
-        response = requests.get(url, params=params, auth=(AMP_API_KEY, AMP_SECRET_KEY))
-        response_code = response.status_code
-
-        dir = 'data'
-        if os.path.exists(dir):
-            pass
-        else:
-            os.mkdir(dir)
-
-        filepath = f'{dir}/{filename}.zip'
-
-        # If successful?
-
-        if response_code == 200:
-            data = response.content # because it .zips
-            logger.info("Data retrieved successfully.")
-            logger.info(f"Saving data to amp_events.zip")
-            with open(f"data/amp_events.zip", 'wb') as file:
-                file.write(data)
-            logger.info(f"Data saved to amp_events.zip")
+        #check for successful download
+        if response.status_code == 200:
+            print('Download successful')
+            logger.info('Download successful')
+            file_path = f'{data_dir}/amplitude_events_{current_timestamp_str}.zip'
+            with open(file_path, 'wb') as file:
+                file.write(response.content) # Because the response is zip files
+            print(f'File written successfully to {file_path}')
             break
 
-        # If not sucessful?
-        elif response_code>499 or response_code<200:
-                # wait and retry
-                time.sleep(10)
-                count+=1
-                logger.info(f"This is attempt {count}")
-        else:
-            logger.error(f"API Call Error '{response_code}: {response.text}'")
-            print(f'Error {response_code}: {response.text}')
-            break
+        #check for server error
+        elif response.status_code < 200 or response.status_code >= 500:
+            print('Server error')
+            logger.warning('Server error')
+            print(response.reason)
+            logger.warning(response.reason)
+            print('Retrying...')
+            time.sleep(10)
+            count += 1
 
-        logger.info("Process Finished")
+        #check for non-server error
+        else:
+            print('Non-server error. Terminating script')
+            logger.error('Non-server error. Terminating script')
+            print(response.reason)
+            logger.error(response.reason)
+            break
