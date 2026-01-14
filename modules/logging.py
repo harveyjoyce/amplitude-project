@@ -1,6 +1,6 @@
 import logging
 
-def make_logger(timestamp):
+def logging_function(timestamp):
     '''
     Creates a logger, using a timestamp as a suffix to make the file name unique
     '''
