@@ -1,25 +1,15 @@
 import logging
-import os
-from datetime import datetime
 
-def logging_function(prefix, timestamp):
+def make_logger(timestamp):
     '''
-    Designed for logging
-    
-    :param prefix: For folder name of lof
-    :param timestamp: for name of log files
+    Creates a logger, using a timestamp as a suffix to make the file name unique
     '''
+    log_filepath = f'logs/logs_{timestamp}.log'
 
-    dir = f'{prefix}_logs'
-    os.makedirs(dir, exist_ok=True)
-
-    log_filename = f"{dir}/{timestamp}.log"
-
-    # Configure logs to retrieve INFO messages and higher
+    #set up logging
     logging.basicConfig(
-        level=logging.INFO, 
+        level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
-        filename=log_filename
+        filename=log_filepath
     )
-
     return logging.getLogger()

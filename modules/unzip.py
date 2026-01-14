@@ -1,48 +1,47 @@
+import os
+import gzip
+import shutil
+from zipfile import ZipFile
 
 
-def unzipping_function(logger):
+def unzipping_function(zip_dir, gzip_dir, output_dir, logger):
+    """
+    Extract zip files containing folders of gzip files,
+    then decompress all .gz files to output_dir.
+    """
 
-    # Create a temporary directory for extraction
-    temp_dir = tempfile.mkdtemp()
-    logger.info("Environment Setup: beginning unzip process")
+    for zip_name in os.listdir(zip_dir):
+        if not zip_name.endswith(".zip"):
+            continue
 
-    try:
-        # Extract the main zip file into the temporary directory
-        with zipfile.ZipFile("amp_events.zip", "r") as zip_ref:
-            zip_ref.extractall(temp_dir)
-            logger.info(f"amp_events.zip extracted to temp directory: {temp_dir} ")
-    except Exception as e:
-        logger.error(f"Error extracting zip file: {str(e)}")
-        raise
+        zip_path = os.path.join(zip_dir, zip_name)
+        logger.info(f"Processing {zip_name}")
 
-    try:
-        # Locate the day folder (assumed to be the numeric folder)
-        day_folder = next(f for f in os.listdir(temp_dir) if f.isdigit())
-        day_path = os.path.join(temp_dir, day_folder)
-    except Exception as e:
-        logger.error(f"Error finding day folder: {str(e)}")
-        raise
+        try:
+            # 1. Unzip
+            with ZipFile(zip_path) as zf:
+                zf.extractall(gzip_dir)
 
-    # Walk through the day folder and decompress each .gz file to the data directory
-    for root, _, files in os.walk(day_path):
-        for file in files:
-            if file.endswith('.gz'):
-                try:
+            logger.info(f"{zip_name} extracted")
+            os.remove(zip_path)
+            logger.info(f"{zip_name} deleted")
+
+            # 2. Walk extracted content and decompress gz files
+            for root, _, files in os.walk(gzip_dir): # os.walk returns 3 values, _ means "ignore this variable"
+                for file in files:
+                    if not file.endswith(".gz"):
+                        continue
+
                     gz_path = os.path.join(root, file)
-                    json_filename = file[:-3]  # Remove .gz extension
-                    output_path = os.path.join(dir, json_filename)
+                    output_path = os.path.join(output_dir, file[:-3])
 
-                    with gzip.open(gz_path, 'rb') as gz_file, open(output_path, 'wb') as out_file:
+                    with gzip.open(gz_path, "rb") as gz_file, \
+                         open(output_path, "wb") as out_file:
                         shutil.copyfileobj(gz_file, out_file)
-                    
-                    logger.info(f"Successfully processed: {file} -> {json_filename}")
-                except Exception as e:
-                    logger.error(f"Failed to process file {file}: {str(e)}")
 
-    try:
-        # Delete the temporary directory
-        shutil.rmtree(temp_dir)
-        logger.info("Temp directory deleted")
+                    logger.info(f"{file} decompressed")
+                    os.remove(gz_path)
+                    logger.info(f"{file} deleted")
 
-    except Exception as e:
-        logger.error(f"Failed to delete temp directory: {str(e)}")
+        except Exception as e:
+            logger.exception(f"Failed processing {zip_name}: {e}")
