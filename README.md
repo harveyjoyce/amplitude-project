@@ -164,17 +164,21 @@ If you got to your bucket in AWS, go to Properties and scroll down to Event Noti
 ├── macros/               # Reusable Jinja functions (like custom aggregations)
 ├── models/               # The heart of your project
 │   ├── staging/          # Raw data cleaning (renaming, type casting)
-│   │   └── bike_point/   # Organized by source system (e.g., stripe, hubspot)
+│   │   └── amplitude/   # Organized by source system (e.g., stripe, hubspot)
 │   │       ├── base/
-│   │       │    └── base_bike_point__parsed.sql
-│   │       ├── _bike_point__sources.yml
-│   │       └── stg_bike_point__parsed.sql
+│   │       │    └── base_amplitude__events.sql
+│   │       ├── _amplitude__docs.yml # Write detailed, reusable explanations.
+│   │       ├── _amplitude__models.yml # Test and describe your SQL models.
+│   │       ├── _amplitude__sources.yml # Define raw, external data.
+│   │       └── stg_amplitude__events.sql
 │   ├── intermediate/     # Complex joins and business logic between staging/marts
+│   │   └── amplitude/
+│   │       ├── _amplitude__models.yml
+│   │       └── int_amplitude__many_click_sessions.sql
 │   └── marts/            # Final, "gold" tables for BI tools
-│       └── bike_point/
-│           ├── bike_point_gold.sql
-│           ├── dim_bike_point.sql
-│           └── fct_bike_point.sql
+│       └── amplitude/
+│           ├── _amplitude__models.yml
+│           └── amplitude__repeat_clicks.sql
 ├── seeds/                # Small, static CSV files (e.g., country codes)
 ├── snapshots/            # Files for tracking data changes over time (SCD Type 2)
 ├── tests/                # Custom data quality tests (singular tests)
@@ -185,22 +189,11 @@ If you got to your bucket in AWS, go to Properties and scroll down to Event Noti
 ```
 ## Data Model 🗺️
 
-<img width="3452" height="1323" alt="image" src="https://github.com/user-attachments/assets/a6f8f034-a4c4-4c2e-9a4f-61fd20569461" />
+### int_amplitude__many_click_sessions: 
+- Identifies "High-Intensity" Events: It scans the raw event logs to find specific instances where a user interacted with the same element or page more than twice within a single session.
+- Isolates the Noise: It filters the entire dataset down to only these repetitive interactions, providing a clean "subset" of data for deeper analysis without the bulk of normal user behavior.
 
-### fct_bike_point: 
-- This is a fact table that records the number of bikes, docks, e-bikes at each BikePoint location
-- We're not updating any existing data so we use an incremental append.
-
-### dim_bike_point:
-- This is a dimension table that has qualitative infomation about each BikePoint (e.g Name, Location etc)
-- There are a few columns that we want to update but not record the history of changes (e.g removaldate). We can use a snapshot table to do this.
-
-### bike_point_gold 🏅
-- The API documentation mentions that if `nbdocks - (nbemptydocks + nbbikes)` is negative then that BikePoint has broken docks.
-- This is a simple view that shows what BikePoints have broken docks and where they are located.
-
-## License 🪪 
-
-This project uses public TfL API data and is intended for educational and non-commercial use.
-Please refer to TfL’s API terms and conditions for usage guidelines.
+### amplitude__repeat_clicks 🏅
+- Calculates Interaction Speed: It uses a `LAG` function to measure the exact number of seconds between each consecutive click, identifying how rapidly a user is repeating an action.
+- Aggregates to a Unique Key: It rolls the data up into a final table with a unique Primary Key (`pkey`), calculating the average time between events and the total session duration for each specific interaction.
 
